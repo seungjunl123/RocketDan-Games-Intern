@@ -1,15 +1,19 @@
 using Unity.Burst.Intrinsics;
 using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.Pool;
+using TMPro;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class ZombieBase : MonoBehaviour
+public class ZombieBase : PoolableObject<ZombieBase>
 {
-
     [SerializeField] private ZombieStat stats;
-    public IObjectPool<ZombieBase> ObjectPool { get; set; }
     [SerializeField] private float HP;
+    [SerializeField] private GameObject floatingDamageTextPrefab;
+    [SerializeField] private Transform damageTextSpawnPoint;
+    public bool isDead;
+    public static event Action<ZombieBase> OnMonsterDied;
 
     private Rigidbody2D rb;
     private bool isJumping = false;
@@ -45,14 +49,6 @@ public class ZombieBase : MonoBehaviour
                     Jump();
                 }
             }
-
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                if(--HP == 0)
-                {
-                    Die();
-                }
-            }
         }
     }
 
@@ -72,8 +68,21 @@ public class ZombieBase : MonoBehaviour
 
     public void Die()
     {
-        // 좀비가 죽거나 사라질 때 ObjectPool에 반환
-        ObjectPool.Release(this);
+        isDead = true;
+        // 총구 방향 에러 방지를 위해 화면 밖으로 이동 후 비활성화
+        this.transform.position = new Vector3(20f, 0f, 0f); 
+        OnMonsterDied(this);
+        Release();
     }
 
+    public void TakeDamage(float InDamage)
+    {
+        HP -= InDamage;
+        
+            // 데미지 텍스트 생성
+        GameObject dmgTextObj = Instantiate(floatingDamageTextPrefab, gameObject.transform.position, Quaternion.identity);
+        FloatingDamage dmgText = dmgTextObj.GetComponent<FloatingDamage>();
+        dmgText.Initialize(InDamage);
+        if(HP <= 0) Die();
+    }
 }
