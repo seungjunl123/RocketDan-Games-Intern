@@ -1,56 +1,34 @@
 using UnityEngine;
-using UnityEngine.Pool;
+using System;
 
-public class ZombieSpanwer : MonoBehaviour
+public class ZombieSpanwer : ObjectPooler<ZombieBase>
 {
-    [SerializeField] private ZombieBase zombiePrefab;
-    [SerializeField] private bool collectionCheck = true;
-    [SerializeField] private int defaultCapacity = 10;
-    [SerializeField] private int maxSize = 50;
     [SerializeField] private int LayerIndex;
-    private IObjectPool<ZombieBase> zombiePool;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    private void Awake()
-    {
-        zombiePool = new ObjectPool<ZombieBase>(
-            CreateZombie,
-            OnGetFromPool,
-            OnReleaseToPool,
-            OnDestroyZombie,
-            collectionCheck,
-            defaultCapacity,
-            maxSize
-        );
-    }
+    public static event Action OnMonsterSpawned;
 
-    private ZombieBase CreateZombie()
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
+
+
+    protected override ZombieBase CreateObject()
     {
-        ZombieBase zombie = Instantiate(zombiePrefab, transform);
-        zombie.ObjectPool = zombiePool;
+        GameObject obj = Instantiate(setting.prefab, transform);
+        ZombieBase zombie = obj.GetComponent<ZombieBase>();
+        zombie.ObjectPool = pool;
         zombie.gameObject.layer = LayerMask.NameToLayer($"Ground_Line_{LayerIndex}");
         SpriteRenderer[] sr = zombie.gameObject.GetComponentsInChildren<SpriteRenderer>();
         foreach(SpriteRenderer renderer in sr)
         {
             renderer.sortingLayerName = $"Ground_Line_{LayerIndex}";
         }
+        OnMonsterSpawned();
         return zombie;
     }
 
-    private void OnGetFromPool(ZombieBase zombie)
+    protected override void OnGetFromPool(ZombieBase zombie)
     {
-        zombie.gameObject.SetActive(true);
+        base.OnGetFromPool(zombie);
         // 위치 초기화 등
         zombie.transform.position = GetSpawnPosition();
-    }
-
-    private void OnReleaseToPool(ZombieBase zombie)
-    {
-        zombie.gameObject.SetActive(false);
-    }
-
-    private void OnDestroyZombie(ZombieBase zombie)
-    {
-        Destroy(zombie.gameObject);
     }
 
     // 예시용 좀비 소환
@@ -58,13 +36,7 @@ public class ZombieSpanwer : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            zombiePool.Get(); // Get만 해도 자동으로 OnGetFromPool 호출
+            pool.Get(); // Get만 해도 자동으로 OnGetFromPool 호출
         }
-    }
-
-    private Vector3 GetSpawnPosition()
-    {
-        // 원하는 위치 반환
-        return transform.position;
     }
 }
